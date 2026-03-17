@@ -16,9 +16,10 @@ import { useSelectedNode } from '../../hooks/useSelectedNode';
 
 interface PathwayCanvasProps {
   pathway: Pathway;
+  onNodeClick?: (stepId: string) => void;
 }
 
-export function PathwayCanvas({ pathway }: PathwayCanvasProps) {
+export function PathwayCanvas({ pathway, onNodeClick }: PathwayCanvasProps) {
   const { setSelectedNodeId } = useSelectedNode();
   const { fitView } = useReactFlow();
 
@@ -39,6 +40,12 @@ export function PathwayCanvas({ pathway }: PathwayCanvasProps) {
     setSelectedNodeId(null);
   }, [setSelectedNodeId]);
 
+  const handleNodeClick = useCallback((_: React.MouseEvent, node: { id: string }) => {
+    if (onNodeClick) {
+      onNodeClick(node.id);
+    }
+  }, [onNodeClick]);
+
   return (
     <div className="w-full h-full">
       <ReactFlow
@@ -49,6 +56,7 @@ export function PathwayCanvas({ pathway }: PathwayCanvasProps) {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onPaneClick={onPaneClick}
+        onNodeClick={handleNodeClick}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.1}
