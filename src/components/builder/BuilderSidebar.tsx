@@ -3,7 +3,9 @@ import { Pathway, ProcessStep } from '../../types/pathway';
 import { StageEditor } from './StageEditor';
 import { CalculationPanel } from './CalculationPanel';
 import { ConnectionEditor } from './ConnectionEditor';
-import { createEmptyStep } from '../../utils/storage';
+import { ProcessLibrary } from './ProcessLibrary';
+import { ProcessTemplate } from '../../data/process-library';
+import { createEmptyStep, generateId } from '../../utils/storage';
 
 interface BuilderSidebarProps {
   pathway: Pathway;
@@ -13,7 +15,8 @@ interface BuilderSidebarProps {
 }
 
 export function BuilderSidebar({ pathway, onChange, editingStepId, onEditStep }: BuilderSidebarProps) {
-  const [activeView, setActiveView] = useState<'stages' | 'connections' | 'calculate' | 'settings'>('stages');
+  const [activeView, setActiveView] = useState<'stages' | 'connections' | 'calculate' | 'library' | 'settings'>('stages');
+  const [showLibrary, setShowLibrary] = useState(false);
 
   const editingStep = editingStepId
     ? pathway.steps.find((s) => s.id === editingStepId) ?? null
@@ -49,16 +52,43 @@ export function BuilderSidebar({ pathway, onChange, editingStepId, onEditStep }:
     onEditStep(step.id);
   };
 
+  const addFromTemplate = (template: ProcessTemplate) => {
+    const newId = generateId(template.template.nodeType);
+    const step: ProcessStep = {
+      ...JSON.parse(JSON.stringify(template.template)),
+      id: newId,
+      // Regenerate stream IDs for inputs/outputs
+      inputs: template.template.inputs.map((inp) => ({ ...inp, streamId: generateId('stream') })),
+      outputs: template.template.outputs.map((out) => ({ ...out, streamId: generateId('stream') })),
+    };
+    onChange({ ...pathway, steps: [...pathway.steps, step] });
+    setShowLibrary(false);
+    setActiveView('stages');
+    onEditStep(step.id);
+  };
+
+  // Show process library overlay
+  if (showLibrary) {
+    return (
+      <aside className="w-[420px] shrink-0 bg-white border-l border-slate-200 overflow-y-auto">
+        <ProcessLibrary
+          onUseTemplate={addFromTemplate}
+          onClose={() => setShowLibrary(false)}
+        />
+      </aside>
+    );
+  }
+
   return (
     <aside className="w-[420px] shrink-0 bg-white border-l border-slate-200 overflow-y-auto">
       <div className="p-4">
         {/* View tabs */}
         <div className="flex gap-1 mb-4 bg-slate-100 rounded-lg p-1">
-          {(['stages', 'connections', 'calculate', 'settings'] as const).map((view) => (
+          {(['stages', 'connections', 'calculate', 'library', 'settings'] as const).map((view) => (
             <button
               key={view}
               onClick={() => setActiveView(view)}
-              className={`text-xs px-3 py-1.5 rounded-md capitalize transition-colors flex-1 ${
+              className={`text-xs px-2 py-1.5 rounded-md capitalize transition-colors flex-1 ${
                 activeView === view ? 'bg-white text-slate-900 shadow-sm font-medium' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
@@ -74,7 +104,15 @@ export function BuilderSidebar({ pathway, onChange, editingStepId, onEditStep }:
               <h3 className="text-sm font-semibold text-slate-700">Process Stages</h3>
             </div>
 
-            {/* Add stage buttons */}
+            {/* Add from library */}
+            <button
+              onClick={() => setActiveView('library')}
+              className="w-full text-xs px-3 py-2.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 transition-colors font-medium mb-3"
+            >
+              Browse Process Library — add from templates with theory & reactions
+            </button>
+
+            {/* Add blank stage buttons */}
             <div className="flex gap-2 mb-4">
               <button
                 onClick={() => addStep('feedstock')}
@@ -134,6 +172,14 @@ export function BuilderSidebar({ pathway, onChange, editingStepId, onEditStep }:
         {/* Calculate View */}
         {activeView === 'calculate' && (
           <CalculationPanel pathway={pathway} />
+        )}
+
+        {/* Library View */}
+        {activeView === 'library' && (
+          <ProcessLibrary
+            onUseTemplate={addFromTemplate}
+            onClose={() => setActiveView('stages')}
+          />
         )}
 
         {/* Settings View */}
